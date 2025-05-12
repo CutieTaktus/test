@@ -10,8 +10,8 @@
   <p id="alert" style="color: red; font-weight: bold;"></p>
 
   <script>
-    const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; // UART Service UUID
-    const CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // TX Notify Characteristic UUID
+    const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
     let spokenRecently = false;
 
@@ -49,7 +49,12 @@
 
           if (distance < 100) {
             document.getElementById('alert').textContent = '🚨 Obstacle detected!';
-            speak("Obstacle detected ahead. Please stop.");
+            if (!spokenRecently) {
+              speak("Obstacle detected ahead. Please stop.");
+              playSound();
+              spokenRecently = true;
+              setTimeout(() => spokenRecently = false, 5000);
+            }
           } else {
             document.getElementById('alert').textContent = '';
           }
@@ -64,16 +69,22 @@
     }
 
     function speak(text) {
-      if (spokenRecently) return;
-
       const msg = new SpeechSynthesisUtterance(text);
       window.speechSynthesis.speak(msg);
-      spokenRecently = true;
+    }
 
-      // Prevent repeated speech spam
-      setTimeout(() => {
-        spokenRecently = false;
-      }, 5000); // 5 seconds buffer
+    function playSound() {
+      try {
+        const context = new AudioContext();
+        const oscillator = context.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(1000, context.currentTime);
+        oscillator.connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.4);
+      } catch (error) {
+        console.log('Sound error:', error);
+      }
     }
   </script>
 </body>
