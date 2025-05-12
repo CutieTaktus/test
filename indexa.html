@@ -1,52 +1,64 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pico BLE Alert</title>
+  <title>Connect to Pico W</title>
 </head>
 <body>
-  <button onclick="connect()">Connect to Pico</button>
+  <button onclick="connectToPico()">Connect to Pico W</button>
   <p id="status">Not connected</p>
 
   <script>
-    const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-    const CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // TX Notify
+    const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; // UART Service UUID
+    const CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // TX Notify Characteristic UUID
 
-    async function connect() {
+    // Function to connect to the Pico W
+    async function connectToPico() {
       try {
+        // Request device with the specified service UUID
         const device = await navigator.bluetooth.requestDevice({
           filters: [{ services: [SERVICE_UUID] }]
         });
 
+        // Connect to the device's GATT server
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(SERVICE_UUID);
         const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-        document.getElementById('status').textContent = 'Connected';
+        // Update status
+        document.getElementById('status').textContent = 'Connected to ' + device.name;
 
-        characteristic.startNotifications();
-        characteristic.addEventListener('characteristicvaluechanged', (event) => {
-          const value = new TextDecoder().decode(event.target.value);
-          console.log('Received:', value);
+        // Start receiving notifications from the characteristic
+        await characteristic.startNotifications();
 
-          if (value.includes('ALERT')) {
-            playSound();
-          }
-        });
-
+        // Add an event listener to handle characteristic value changes
+        characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChanged);
+        
       } catch (error) {
-        console.error(error);
-        alert('Failed to connect: ' + error);
+        console.error('Connection failed!', error);
+        document.getElementById('status').textContent = 'Failed to connect.';
       }
     }
 
+    // This function will run every time a characteristic value changes
+    function handleCharacteristicChanged(event) {
+      const value = new TextDecoder().decode(event.target.value);
+      console.log('Received data:', value);
+      
+      // Example: Trigger a sound if the string contains "ALERT"
+      if (value.includes('ALERT')) {
+        playSound();
+      }
+    }
+
+    // Function to play a sound (e.g., using Web Audio API)
     function playSound() {
       const context = new AudioContext();
       const oscillator = context.createOscillator();
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(1000, context.currentTime); // 1 kHz
+      oscillator.frequency.setValueAtTime(1000, context.currentTime); // 1 kHz sound
       oscillator.connect(context.destination);
       oscillator.start();
-      oscillator.stop(context.currentTime + 0.5); // Play for 0.5 seconds
+      oscillator.stop(context.currentTime + 0.5); // Sound for 0.5 seconds
     }
   </script>
 </body>
