@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pico BLE Alert</title>
+</head>
+<body>
+  <button onclick="connect()">Connect to Pico</button>
+  <p id="status">Not connected</p>
+
+  <script>
+    const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // TX Notify
+
+    async function connect() {
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [SERVICE_UUID] }]
+        });
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+        document.getElementById('status').textContent = 'Connected';
+
+        characteristic.startNotifications();
+        characteristic.addEventListener('characteristicvaluechanged', (event) => {
+          const value = new TextDecoder().decode(event.target.value);
+          console.log('Received:', value);
+
+          if (value.includes('ALERT')) {
+            playSound();
+          }
+        });
+
+      } catch (error) {
+        console.error(error);
+        alert('Failed to connect: ' + error);
+      }
+    }
+
+    function playSound() {
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(1000, context.currentTime); // 1 kHz
+      oscillator.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.5); // Play for 0.5 seconds
+    }
+  </script>
+</body>
+</html>
