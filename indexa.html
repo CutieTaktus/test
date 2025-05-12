@@ -15,16 +15,18 @@
     async function connectToPico() {
       try {
         // Request device with the specified service UUID
+        document.getElementById('status').textContent = 'Requesting device...';
         const device = await navigator.bluetooth.requestDevice({
           filters: [{ services: [SERVICE_UUID] }]
         });
 
         // Connect to the device's GATT server
+        document.getElementById('status').textContent = 'Connecting to ' + device.name + '...';
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(SERVICE_UUID);
         const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-        // Update status
+        // Update status to show connection successful
         document.getElementById('status').textContent = 'Connected to ' + device.name;
 
         // Start receiving notifications from the characteristic
@@ -32,33 +34,40 @@
 
         // Add an event listener to handle characteristic value changes
         characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChanged);
-        
+
       } catch (error) {
-        console.error('Connection failed!', error);
-        document.getElementById('status').textContent = 'Failed to connect.';
+        document.getElementById('status').textContent = 'Failed to connect. Error: ' + error.message;
       }
     }
 
     // This function will run every time a characteristic value changes
     function handleCharacteristicChanged(event) {
-      const value = new TextDecoder().decode(event.target.value);
-      console.log('Received data:', value);
-      
-      // Example: Trigger a sound if the string contains "ALERT"
-      if (value.includes('ALERT')) {
-        playSound();
+      try {
+        const value = new TextDecoder().decode(event.target.value);
+        document.getElementById('status').textContent = 'Received data: ' + value;
+
+        // Example: Trigger a sound if the string contains "ALERT"
+        if (value.includes('ALERT')) {
+          playSound();
+        }
+      } catch (error) {
+        document.getElementById('status').textContent = 'Error handling characteristic change: ' + error.message;
       }
     }
 
     // Function to play a sound (e.g., using Web Audio API)
     function playSound() {
-      const context = new AudioContext();
-      const oscillator = context.createOscillator();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(1000, context.currentTime); // 1 kHz sound
-      oscillator.connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + 0.5); // Sound for 0.5 seconds
+      try {
+        const context = new AudioContext();
+        const oscillator = context.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(1000, context.currentTime); // 1 kHz sound
+        oscillator.connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.5); // Sound for 0.5 seconds
+      } catch (error) {
+        document.getElementById('status').textContent = 'Error playing sound: ' + error.message;
+      }
     }
   </script>
 </body>
