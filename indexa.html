@@ -6,33 +6,30 @@
 <body>
   <button onclick="connectToPico()">Connect to Pico W</button>
   <p id="status">Not connected</p>
+  <p id="distance">Distance: N/A</p>
+  <p id="alert" style="color: red; font-weight: bold;"></p>
 
   <script>
     const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; // UART Service UUID
     const CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // TX Notify Characteristic UUID
 
-    // Function to connect to the Pico W
+    let spokenRecently = false;
+
     async function connectToPico() {
       try {
-        // Request device with the specified service UUID
         document.getElementById('status').textContent = 'Requesting device...';
         const device = await navigator.bluetooth.requestDevice({
           filters: [{ services: [SERVICE_UUID] }]
         });
 
-        // Connect to the device's GATT server
         document.getElementById('status').textContent = 'Connecting to ' + device.name + '...';
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(SERVICE_UUID);
         const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-        // Update status to show connection successful
         document.getElementById('status').textContent = 'Connected to ' + device.name;
 
-        // Start receiving notifications from the characteristic
         await characteristic.startNotifications();
-
-        // Add an event listener to handle characteristic value changes
         characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChanged);
 
       } catch (error) {
@@ -40,34 +37,43 @@
       }
     }
 
-    // This function will run every time a characteristic value changes
     function handleCharacteristicChanged(event) {
       try {
-        const value = new TextDecoder().decode(event.target.value);
+        const value = new TextDecoder().decode(event.target.value).trim();
         document.getElementById('status').textContent = 'Received data: ' + value;
 
-        // Example: Trigger a sound if the string contains "ALERT"
-        if (value.includes('ALERT')) {
-          playSound();
+        const match = value.match(/Distance:\s*(\d+(\.\d+)?)\s*cm/i);
+        if (match) {
+          const distance = parseFloat(match[1]);
+          document.getElementById('distance').textContent = `Distance: ${distance} cm`;
+
+          if (distance < 100) {
+            document.getElementById('alert').textContent = '🚨 Obstacle detected!';
+            speak("Obstacle detected ahead. Please stop.");
+          } else {
+            document.getElementById('alert').textContent = '';
+          }
+        } else {
+          document.getElementById('distance').textContent = 'Distance: Invalid';
+          document.getElementById('alert').textContent = '';
         }
+
       } catch (error) {
-        document.getElementById('status').textContent = 'Error handling characteristic change: ' + error.message;
+        document.getElementById('status').textContent = 'Error handling data: ' + error.message;
       }
     }
 
-    // Function to play a sound (e.g., using Web Audio API)
-    function playSound() {
-      try {
-        const context = new AudioContext();
-        const oscillator = context.createOscillator();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(1000, context.currentTime); // 1 kHz sound
-        oscillator.connect(context.destination);
-        oscillator.start();
-        oscillator.stop(context.currentTime + 0.5); // Sound for 0.5 seconds
-      } catch (error) {
-        document.getElementById('status').textContent = 'Error playing sound: ' + error.message;
-      }
+    function speak(text) {
+      if (spokenRecently) return;
+
+      const msg = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(msg);
+      spokenRecently = true;
+
+      // Prevent repeated speech spam
+      setTimeout(() => {
+        spokenRecently = false;
+      }, 5000); // 5 seconds buffer
     }
   </script>
 </body>
